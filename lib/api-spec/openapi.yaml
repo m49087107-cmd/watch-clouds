@@ -1,0 +1,867 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Watch Clouds - Movie & Web Series Streaming Platform API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: movies
+    description: Movie and web series operations
+  - name: admin
+    description: Admin panel operations
+  - name: tmdb
+    description: TMDB data operations
+  - name: watchlist
+    description: User watchlist operations
+  - name: reviews
+    description: User review operations
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # Auth endpoints
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login user or admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout user
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+  # Movies / Content
+  /movies:
+    get:
+      operationId: listMovies
+      tags: [movies]
+      summary: List all movies and web series
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [movie, webseries, anime, documentary]
+        - name: genre
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: featured
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovieListResponse"
+
+    post:
+      operationId: createMovie
+      tags: [admin]
+      summary: Add new movie/series (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovieInput"
+      responses:
+        "201":
+          description: Movie created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+
+  /movies/trending:
+    get:
+      operationId: getTrendingMovies
+      tags: [movies]
+      summary: Get trending movies and series
+      responses:
+        "200":
+          description: Trending content
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Movie"
+
+  /movies/featured:
+    get:
+      operationId: getFeaturedMovies
+      tags: [movies]
+      summary: Get featured/hero banner content
+      responses:
+        "200":
+          description: Featured content for hero banner
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Movie"
+
+  /movies/genres:
+    get:
+      operationId: listGenres
+      tags: [movies]
+      summary: Get all available genres
+      responses:
+        "200":
+          description: List of genres
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /movies/{id}:
+    get:
+      operationId: getMovie
+      tags: [movies]
+      summary: Get movie/series details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Movie details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovieDetail"
+        "404":
+          description: Not found
+
+    patch:
+      operationId: updateMovie
+      tags: [admin]
+      summary: Update movie/series (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovieUpdate"
+      responses:
+        "200":
+          description: Updated movie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+
+    delete:
+      operationId: deleteMovie
+      tags: [admin]
+      summary: Delete movie/series (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # TMDB Search & Fetch
+  /tmdb/search:
+    get:
+      operationId: tmdbSearch
+      tags: [tmdb]
+      summary: Search TMDB for movies/series
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [movie, tv]
+            default: movie
+      responses:
+        "200":
+          description: TMDB search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TmdbResult"
+
+  /tmdb/import:
+    post:
+      operationId: tmdbImport
+      tags: [tmdb]
+      summary: Import movie/series from TMDB to database (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TmdbImportInput"
+      responses:
+        "201":
+          description: Imported from TMDB
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+
+  # Watchlist
+  /watchlist:
+    get:
+      operationId: getWatchlist
+      tags: [watchlist]
+      summary: Get user's watchlist
+      responses:
+        "200":
+          description: User watchlist
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Movie"
+
+  /watchlist/{movieId}:
+    post:
+      operationId: addToWatchlist
+      tags: [watchlist]
+      summary: Add movie to watchlist
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Added to watchlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+    delete:
+      operationId: removeFromWatchlist
+      tags: [watchlist]
+      summary: Remove from watchlist
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Removed from watchlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # Reviews
+  /movies/{id}/reviews:
+    get:
+      operationId: getMovieReviews
+      tags: [reviews]
+      summary: Get reviews for a movie
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reviews list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+
+    post:
+      operationId: createReview
+      tags: [reviews]
+      summary: Add a review for a movie
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewInput"
+      responses:
+        "201":
+          description: Review created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+
+  # Admin dashboard stats
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get admin dashboard statistics
+      responses:
+        "200":
+          description: Admin statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      summary: List all users (admin only)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+
+  /admin/users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [admin]
+      summary: Update user role or status (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+    delete:
+      operationId: deleteUser
+      tags: [admin]
+      summary: Delete user (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    RegisterInput:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    User:
+      type: object
+      required: [id, name, email, role, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]
+        avatar:
+          type: ["string", "null"]
+        watchlistCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    AuthResponse:
+      type: object
+      required: [user, token]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+
+    Movie:
+      type: object
+      required: [id, title, type, posterUrl, year, rating, genres]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          enum: [movie, webseries, anime, documentary]
+        posterUrl:
+          type: string
+        backdropUrl:
+          type: ["string", "null"]
+        year:
+          type: integer
+        rating:
+          type: number
+        genres:
+          type: array
+          items:
+            type: string
+        overview:
+          type: ["string", "null"]
+        tmdbId:
+          type: ["integer", "null"]
+        isFeatured:
+          type: boolean
+        streamUrl:
+          type: ["string", "null"]
+        trailerUrl:
+          type: ["string", "null"]
+        runtime:
+          type: ["integer", "null"]
+        language:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    MovieDetail:
+      type: object
+      required: [id, title, type, posterUrl, year, rating, genres]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          enum: [movie, webseries, anime, documentary]
+        posterUrl:
+          type: string
+        backdropUrl:
+          type: ["string", "null"]
+        year:
+          type: integer
+        rating:
+          type: number
+        genres:
+          type: array
+          items:
+            type: string
+        overview:
+          type: ["string", "null"]
+        tmdbId:
+          type: ["integer", "null"]
+        isFeatured:
+          type: boolean
+        streamUrl:
+          type: ["string", "null"]
+        trailerUrl:
+          type: ["string", "null"]
+        runtime:
+          type: ["integer", "null"]
+        language:
+          type: ["string", "null"]
+        cast:
+          type: array
+          items:
+            $ref: "#/components/schemas/CastMember"
+        inWatchlist:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CastMember:
+      type: object
+      properties:
+        name:
+          type: string
+        character:
+          type: ["string", "null"]
+        profileUrl:
+          type: ["string", "null"]
+
+    MovieListResponse:
+      type: object
+      required: [movies, total, page, totalPages]
+      properties:
+        movies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Movie"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+
+    MovieInput:
+      type: object
+      required: [title, type, posterUrl, year, rating, genres]
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+          enum: [movie, webseries, anime, documentary]
+        posterUrl:
+          type: string
+        backdropUrl:
+          type: string
+        year:
+          type: integer
+        rating:
+          type: number
+        genres:
+          type: array
+          items:
+            type: string
+        overview:
+          type: string
+        tmdbId:
+          type: integer
+        isFeatured:
+          type: boolean
+        streamUrl:
+          type: string
+        trailerUrl:
+          type: string
+        runtime:
+          type: integer
+        language:
+          type: string
+        cast:
+          type: array
+          items:
+            $ref: "#/components/schemas/CastMember"
+
+    MovieUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+          enum: [movie, webseries, anime, documentary]
+        posterUrl:
+          type: string
+        backdropUrl:
+          type: string
+        year:
+          type: integer
+        rating:
+          type: number
+        genres:
+          type: array
+          items:
+            type: string
+        overview:
+          type: string
+        isFeatured:
+          type: boolean
+        streamUrl:
+          type: string
+        trailerUrl:
+          type: string
+        runtime:
+          type: integer
+        language:
+          type: string
+
+    TmdbImportInput:
+      type: object
+      required: [tmdbId, mediaType]
+      properties:
+        tmdbId:
+          type: integer
+        mediaType:
+          type: string
+          enum: [movie, tv]
+
+    TmdbResult:
+      type: object
+      required: [tmdbId, title, type, posterUrl, year, rating]
+      properties:
+        tmdbId:
+          type: integer
+        title:
+          type: string
+        type:
+          type: string
+        posterUrl:
+          type: string
+        backdropUrl:
+          type: ["string", "null"]
+        year:
+          type: integer
+        rating:
+          type: number
+        overview:
+          type: ["string", "null"]
+
+    Review:
+      type: object
+      required: [id, userId, movieId, rating, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        userName:
+          type: string
+        movieId:
+          type: string
+        rating:
+          type: number
+        comment:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ReviewInput:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          type: number
+          minimum: 1
+          maximum: 10
+        comment:
+          type: string
+
+    AdminStats:
+      type: object
+      required: [totalMovies, totalUsers, totalWatchlistEntries, moviesByType, recentMovies]
+      properties:
+        totalMovies:
+          type: integer
+        totalUsers:
+          type: integer
+        totalWatchlistEntries:
+          type: integer
+        moviesByType:
+          type: object
+          additionalProperties:
+            type: integer
+        recentMovies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Movie"
+
+    UserListResponse:
+      type: object
+      required: [users, total, page, totalPages]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+
+    UserUpdate:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, admin]
+        name:
+          type: string
